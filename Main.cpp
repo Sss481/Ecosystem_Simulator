@@ -1,22 +1,29 @@
-﻿# include <Siv3D.hpp> // OpenSiv3D v0.6.11
+﻿
 
 
 // 変な書き方をしていても温かい目で見てください！
 
 
+
+# include <Siv3D.hpp> // OpenSiv3D v0.6.11
+
 constexpr int species = 5; // 種の数
 constexpr int numCreatures = 800; // 初期状態での生物の合計数
 constexpr int columns = 6; // パッチの列数（縦線でいくつに区切られるか。1以上）
 constexpr int rows = 3; // パッチの行数（横線でいくつに区切られるか。1以上）
+
 constexpr double creatureSpeed = 0.3; // 生物の移動速度
 constexpr double maxTurnAngle = 90_deg; // 生物が1秒ごとに行う方向転換の最大値
 constexpr double creatureRadius = 3.5; // 生物の半径（見た目のみ）
 constexpr int maxEnergy = 100; // 最大エネルギー。この量のエネルギーがたまったら分裂する。不利な場所で生きられる時間にも関わる
 constexpr int metabolism = 5; // 常時消費するエネルギー
-constexpr double deltaComp = 1.0; // 競争能力（competitiveness）の差をどれくらいにするか
-constexpr double nicheDifference = 0.2; // ニッチの差をどれくらいにするか。0以上1以下
-constexpr bool arithSeqComp = 0; // trueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
-constexpr bool invasionMode = 1; // trueにすると種０が強い種1匹に置き換えられた状態からスタート
+
+constexpr double deltaCompe = 1.0; // 競争能力（Competitiveness）の差をどれくらいにするか
+constexpr double nicheDifference = 0.0; // ニッチの差をどれくらいにするか。ニッチ重複で表したほうが分かりやすいかも
+
+constexpr bool arithSeqCompe = 0; // これをtrueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
+constexpr bool invasionMode = 0; // これをtrueにすると種０が強い種1匹に置き換えられた状態からスタート
+
 constexpr int FPS = 30; // フレームレート
 constexpr int csvWriteInterval = 1000; // 何秒ごとにCSVファイルにデータを書き込むか
 namespace {
@@ -32,13 +39,13 @@ struct Creature {
 
 // パッチ
 struct Patch {
-	double comp[species]; // 種ごとの競争能力
+	double compe[species]; // 種ごとの競争能力
 	int num[species] = { 0 }; // パッチ内の生物数を種ごとに数える
 
 	Patch() {
 		for (auto i : step(species)) {
-			// compはmetabolism ± (deltaComp / 2)の範囲でランダム（一様乱数）
-			comp[i] = Random(metabolism - (deltaComp / 2), metabolism + (deltaComp / 2));
+			// compはmetabolism ± (deltaCompe / 2)の範囲でランダム（一様乱数）
+			compe[i] = Random(metabolism - (deltaCompe / 2), metabolism + (deltaCompe / 2));
 		}
 	}
 };
@@ -51,7 +58,7 @@ void Main() {
 	int simulationSpeed = 0; // シミュレーション速度（倍速）の調節
 
 	// 生物たちを生成
-	Array<Creature> creatures[species]; // 静的配列とSiv3Dの動的配列Arrayを組み合わせた二次元配列
+	Array<Array<Creature>> creatures(species); // Siv3Dにおける動的配列はArray
 	for (auto i : step(species)) {
 		creatures[i].reserve(int(1.2 * numCreatures / species));
 		for (auto j : step(numCreatures / species))
@@ -64,27 +71,19 @@ void Main() {
 		creatures[0].clear();
 		for (auto i : step(columns)) {
 			for (auto j : step(rows)) {
-				patches[i][j].comp[0] = metabolism + deltaComp;
+				patches[i][j].compe[0] = metabolism + deltaCompe;
 			}
 		}
 		Creature newCreature;
 		creatures[0] << newCreature;
 	}
 
-	if (arithSeqComp && species > 1) {
-		for (auto i : step(columns)) {
-			for (auto j : step(rows)) {
-				for (auto k : step(species)) {
-					patches[i][j].comp[k] = metabolism -
-						deltaComp / 2 + k * deltaComp / (species - 1);
-				}
-			}
-		}
-	}
-
-	CSV csv;
+	if (arithSeqCompe && species > 1)
+		for (auto i : step(columns)) for (auto j : step(rows)) for (auto k : step(species))
+			patches[i][j].compe[k] = metabolism - deltaCompe / 2 + k * deltaCompe / (species - 1);
 
 	// CSVにデータを書き込む
+	CSV csv;
 	csv.write(U"経過時間");
 	for (auto j : step(species)) {
 		csv.write(U"種{}"_fmt(j));
@@ -196,18 +195,13 @@ void Main() {
 					// 初期状態の生物数を基準にして競争の激しさを補正する
 					double a = numCreatures / (competitionEffect[posX][posY] * columns * rows);
 					// そのパッチにおける競争能力と組み合わせてエネルギー獲得量を計算する
-					creature.E += Min(patches[posX][posY].comp[i] * a, metabolism + 3 * deltaComp);
+					creature.E += Min(patches[posX][posY].compe[i] * a, metabolism + 3 * deltaCompe);
 				}
 			}
 
-			// パッチ内の生物数のカウントを0に戻しておく
-			for (auto i : step(columns)) {
-				for (auto j : step(rows)) {
-					for (auto k : step(species)) {
-						patches[i][j].num[k] = 0;
-					}
-				}
-			}
+			// パッチごとの生物数のカウントを0に戻しておく
+			for (auto i : step(columns)) for (auto j : step(rows)) for (auto k : step(species))
+				patches[i][j].num[k] = 0;
 
 			count++;
 
@@ -231,9 +225,9 @@ void Main() {
 		}
 
 		Print(U"経過時間  {}秒"_fmt(count / FPS));
+		if (simulationSpeed > 0)Print(simulationSpeed, U"倍速");
 		// 倍速などの情報を表示。CtrlまたはShiftまたはZまたは上矢印キー。
 		if (KeyShift.pressed() || KeyControl.pressed() || KeyZ.pressed() || KeyUp.pressed()) {
-			Print(simulationSpeed, U"倍速");
 
 			Rect(Scene::Width() - 12 * creatureRadius, 0,
 				12 * creatureRadius, (species + 1) * 6 * creatureRadius).draw(Palette::Gray);
@@ -244,18 +238,18 @@ void Main() {
 					.draw(HSV(360.0 / species * i, 1.0, 0.7));
 			}
 
-			// マウスカーソルがある位置のパッチのcomp一覧
+			// マウスカーソルがある位置のパッチのcompe一覧
 			if (Cursor::PosF().x >= 0 && Cursor::PosF().x < Scene::Width()
 				&& Cursor::PosF().y >= 0 && Cursor::PosF().y < Scene::Height()) {
 				int cursorX = int(Cursor::PosF().x / Scene::Width() * columns);
 				int cursorY = int(Cursor::PosF().y / Scene::Height() * rows);
-				Print(patches[cursorX][cursorY].comp);
+				Print(patches[cursorX][cursorY].compe);
 			}
 
 			// フレームレート
 			Print(Min(FPS, int(1.0 / stopwatch.sF())), U" FPS");
 
-			if (arithSeqComp)Print(U"ArithSeqComp Mode");
+			if (arithSeqCompe)Print(U"ArithSeqComp Mode");
 			if (invasionMode)Print(U"Invasion Mode");
 		}
 			
