@@ -19,7 +19,7 @@ constexpr int maxEnergy = 100; // 最大エネルギー。この量のエネル�
 constexpr int metabolism = 5; // 常時消費するエネルギー
 
 constexpr double deltaCompe = 1.0; // 競争能力（Competitiveness）の差をどれくらいにするか
-constexpr double nicheOverwrap = 0.8; // ニッチの差をどれくらいにするか。ニッチ重複で表したほうが分かりやすいかも
+constexpr double nicheOverwrap = 0.8; // ニッチ重複
 
 constexpr bool arithSeqCompe = 0; // これをtrueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
 constexpr bool invasionMode = 0; // これをtrueにすると種０が強い種1匹に置き換えられた状態からスタート
