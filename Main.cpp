@@ -19,7 +19,7 @@ constexpr int maxEnergy = 100; // 最大エネルギー。この量のエネル�
 constexpr int metabolism = 5; // 常時消費するエネルギー
 
 constexpr double deltaCompe = 1.0; // 競争能力（Competitiveness）の差をどれくらいにするか
-constexpr double nicheDifference = 0.0; // ニッチの差をどれくらいにするか。ニッチ重複で表したほうが分かりやすいかも
+constexpr double nicheOverwrap = 0.8; // ニッチの差をどれくらいにするか。ニッチ重複で表したほうが分かりやすいかも
 
 constexpr bool arithSeqCompe = 0; // これをtrueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
 constexpr bool invasionMode = 0; // これをtrueにすると種０が強い種1匹に置き換えられた状態からスタート
@@ -163,7 +163,7 @@ void Main() {
 						Creature newCreature;
 						newCreature.position = creature.position;
 						// エネルギーをぴったり2等分にすると、多数の生物が同時に死んでしまって困る場合がある
-						newCreature.E = creature.E * 0.45; 
+						newCreature.E = creature.E * 0.45;
 						creature.E /= 2;
 						newCreatures << newCreature;
 					}
@@ -184,7 +184,7 @@ void Main() {
 					for (auto k : step(rows)) {
 						for (auto l : step(species)) {
 							if (i == l)competitionEffect[j][k] += patches[j][k].num[l];
-							else competitionEffect[j][k] += patches[j][k].num[l] * (1 - nicheDifference);
+							else competitionEffect[j][k] += patches[j][k].num[l] * nicheOverwrap;
 						}
 					}
 				}
@@ -238,7 +238,7 @@ void Main() {
 					.draw(HSV(360.0 / species * i, 1.0, 0.7));
 			}
 
-			// マウスカーソルがある位置のパッチのcompe一覧
+			// マウスカーソルを合わせた位置のパッチのcompe一覧
 			if (Cursor::PosF().x >= 0 && Cursor::PosF().x < Scene::Width()
 				&& Cursor::PosF().y >= 0 && Cursor::PosF().y < Scene::Height()) {
 				int cursorX = int(Cursor::PosF().x / Scene::Width() * columns);
@@ -252,7 +252,7 @@ void Main() {
 			if (arithSeqCompe)Print(U"ArithSeqComp Mode");
 			if (invasionMode)Print(U"Invasion Mode");
 		}
-			
+
 		//フレームレートを調節するために待機する
 		System::Sleep(1000.0 / FPS - stopwatch.msF());
 		stopwatch.restart();
