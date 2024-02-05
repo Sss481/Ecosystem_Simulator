@@ -7,6 +7,7 @@
 
 # include <Siv3D.hpp> // OpenSiv3D v0.6.11
 
+// constexprは「これは定数です」という意味
 constexpr int species = 5; // 種の数
 constexpr int numCreatures = 800; // 初期状態での生物の合計数
 constexpr int columns = 6; // パッチの列数（縦線でいくつに区切られるか。1以上）
@@ -18,11 +19,11 @@ constexpr double creatureRadius = 3.5; // 生物の半径（見た目のみ）
 constexpr int maxEnergy = 100; // 最大エネルギー。この量のエネルギーがたまったら分裂する。不利な場所で生きられる時間にも関わる
 constexpr int metabolism = 5; // 常時消費するエネルギー
 
-constexpr double deltaCompe = 1.0; // 競争能力（Competitiveness）の差をどれくらいにするか
+constexpr double deltaCompe = 4; // 競争能力（Competitiveness）の差をどれくらいにするか
 constexpr double nicheOverwrap = 0.8; // ニッチ重複
 
+constexpr bool invasionMode = 0; // これをtrueにすると種0が強い種1匹に置き換えられた状態からスタート
 constexpr bool arithSeqCompe = 0; // これをtrueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
-constexpr bool invasionMode = 0; // これをtrueにすると種０が強い種1匹に置き換えられた状態からスタート
 
 constexpr int FPS = 30; // フレームレート
 constexpr int csvWriteInterval = 1000; // 何秒ごとにCSVファイルにデータを書き込むか
@@ -43,17 +44,16 @@ struct Patch {
 	int num[species] = { 0 }; // パッチ内の生物数を種ごとに数える
 
 	Patch() {
-		for (auto i : step(species)) {
+		for (auto i : step(species)) { // stepはSiv3D独自
 			// compはmetabolism ± (deltaCompe / 2)の範囲でランダム（一様乱数）
 			compe[i] = Random(metabolism - (deltaCompe / 2), metabolism + (deltaCompe / 2));
 		}
 	}
 };
 
-
 void Main() {
 	Window::Resize(800, 400); // ウィンドウのサイズを設定する
-	Scene::SetBackground(Palette::Black);
+	Scene::SetBackground(Palette::Black); // 背景色を黒にする
 	uint64 count = 0; // シミュレーション内部の経過時間
 	int simulationSpeed = 0; // シミュレーション速度（倍速）の調節
 
@@ -71,7 +71,7 @@ void Main() {
 		creatures[0].clear();
 		for (auto i : step(columns)) {
 			for (auto j : step(rows)) {
-				patches[i][j].compe[0] = metabolism + deltaCompe;
+				patches[i][j].compe[0] = metabolism + (deltaCompe / 2);
 			}
 		}
 		Creature newCreature;
@@ -238,7 +238,7 @@ void Main() {
 					.draw(HSV(360.0 / species * i, 1.0, 0.7));
 			}
 
-			// マウスカーソルを合わせた位置のパッチのcompe一覧
+			// マウスカーソルを置いた位置のパッチのcompe一覧
 			if (Cursor::PosF().x >= 0 && Cursor::PosF().x < Scene::Width()
 				&& Cursor::PosF().y >= 0 && Cursor::PosF().y < Scene::Height()) {
 				int cursorX = int(Cursor::PosF().x / Scene::Width() * columns);
@@ -249,7 +249,7 @@ void Main() {
 			// フレームレート
 			Print(Min(FPS, int(1.0 / stopwatch.sF())), U" FPS");
 
-			if (arithSeqCompe)Print(U"ArithSeqComp Mode");
+			if (arithSeqCompe)Print(U"ArithSeqCompe Mode");
 			if (invasionMode)Print(U"Invasion Mode");
 		}
 
