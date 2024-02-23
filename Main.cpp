@@ -7,7 +7,7 @@
 
 # include <Siv3D.hpp> // OpenSiv3D v0.6.11
 
-// constexprは「これは定数です」という意味
+// constexprは「これは定数です」という意味（正確にはコンパイル時定数）
 constexpr int species = 5; // 種の数
 constexpr int numCreatures = 800; // 初期状態での生物の合計数
 constexpr int columns = 6; // パッチの列数（縦線でいくつに区切られるか。1以上）
@@ -18,9 +18,12 @@ constexpr double maxTurnAngle = 90_deg; // 生物が1秒ごとに行う方向転
 constexpr double creatureRadius = 3.5; // 生物の半径（見た目のみ）
 constexpr int maxEnergy = 100; // 最大エネルギー。この量のエネルギーがたまったら分裂する。不利な場所で生きられる時間にも関わる
 constexpr int metabolism = 5; // 常時消費するエネルギー
+constexpr double deltaCompe = 2; // 競争能力（Competitiveness）の差をどれくらいにするか
 
-constexpr double deltaCompe = 4; // 競争能力（Competitiveness）の差をどれくらいにするか
-constexpr double nicheOverwrap = 0.8; // ニッチ重複
+
+// ニッチ重複の大きさ。これによって共存にどのような影響が出るかを調べるのが主目的
+constexpr double nicheOverwrap = 0.9;
+
 
 constexpr bool invasionMode = 0; // これをtrueにすると種0が強い種1匹に置き換えられた状態からスタート
 constexpr bool arithSeqCompe = 0; // これをtrueにすると競争能力が全パッチ共通かつ等差数列（arithmetic sequence）になる
@@ -58,7 +61,9 @@ void Main() {
 	int simulationSpeed = 0; // シミュレーション速度（倍速）の調節
 
 	// 生物たちを生成
-	Array<Array<Creature>> creatures(species); // Siv3Dにおける動的配列はArray
+	// Siv3Dにおける動的配列Arrayを用いる
+	// シミュレーション中に種数を増やすことは想定していない
+	std::array<Array<Creature>, species> creatures; // 種数は(species)種
 	for (auto i : step(species)) {
 		creatures[i].reserve(int(1.2 * numCreatures / species));
 		for (auto j : step(numCreatures / species))
@@ -100,12 +105,16 @@ void Main() {
 
 		// 右矢印キーでシミュレーション速度を上げる。Shiftを押していると一気に5、Ctrlを押していると一気に50
 		if (KeyRight.down()) {
-			simulationSpeed += 1 + 4 * KeyShift.pressed() + 49 * KeyControl.pressed();
+			if (KeyControl.pressed())simulationSpeed += 50;
+			else if (KeyShift.pressed())simulationSpeed += 5;
+			else simulationSpeed += 1;
 		}
 
 		// 左矢印キーでシミュレーション速度を下げる。Shiftを押していると一気に5、Ctrlを押していると一気に50
 		if (KeyLeft.down()) {
-			simulationSpeed -= 1 + 4 * KeyShift.pressed() + 49 * KeyControl.pressed();
+			if (KeyControl.pressed())simulationSpeed -= 50;
+			else if (KeyShift.pressed())simulationSpeed -= 5;
+			else simulationSpeed -= 1;
 			if (simulationSpeed < 0) simulationSpeed = 0;
 		}
 
@@ -178,30 +187,34 @@ void Main() {
 
 			// エネルギーを得る
 			for (auto i : step(species)) {
-				// 競争の激しさを、ニッチの差を考慮して求める
-				double competitionEffect[columns][rows] = { 0 };
+				// 競争の激しさを、ニッチ重複を考慮して求める
+				double competitionEffect_inv[columns][rows] = { 0 };
 				for (auto j : step(columns)) {
 					for (auto k : step(rows)) {
 						for (auto l : step(species)) {
-							if (i == l)competitionEffect[j][k] += patches[j][k].num[l];
-							else competitionEffect[j][k] += patches[j][k].num[l] * nicheOverwrap;
+							// ニッチ重複で補正された個体数を計算する。この段階では逆数ではない
+							if (i == l)competitionEffect_inv[j][k] += patches[j][k].num[l];
+							else competitionEffect_inv[j][k] += patches[j][k].num[l] * nicheOverwrap;
 						}
+						// 初期状態の生物数を基準にして競争の激しさを補正しながら、逆数にする
+						constexpr double a = numCreatures / (columns * rows);
+						competitionEffect_inv[j][k] = a / competitionEffect_inv[j][k];
 					}
 				}
 				for (auto& creature : creatures[i]) {
 					// 生物がどのパッチにいるか計算する
 					int posX = int(creature.position.x / Scene::Width() * columns);
 					int posY = int(creature.position.y / Scene::Height() * rows);
-					// 初期状態の生物数を基準にして競争の激しさを補正する
-					double a = numCreatures / (competitionEffect[posX][posY] * columns * rows);
 					// そのパッチにおける競争能力と組み合わせてエネルギー獲得量を計算する
-					creature.E += Min(patches[posX][posY].compe[i] * a, metabolism + 3 * deltaCompe);
+					creature.E += Min(patches[posX][posY].compe[i] * competitionEffect_inv[posX][posY],
+						metabolism + 3 * deltaCompe);
 				}
 			}
 
 			// パッチごとの生物数のカウントを0に戻しておく
-			for (auto i : step(columns)) for (auto j : step(rows)) for (auto k : step(species))
+			for (auto i : step(columns)) for (auto j : step(rows)) for (auto k : step(species)) {
 				patches[i][j].num[k] = 0;
+			}
 
 			count++;
 
