@@ -7,7 +7,7 @@
 
 # include <Siv3D.hpp> // OpenSiv3D v0.6.11
 
-// constexprは「これは定数です」という意味（正確にはコンパイル時定数）
+
 constexpr int species = 5; // 種の数
 constexpr int numCreatures = 800; // 初期状態での生物の合計数
 constexpr int columns = 6; // パッチの列数（縦線でいくつに区切られるか。1以上）
@@ -223,11 +223,11 @@ void Main() {
 		// パッチの境界線を描画する
 		for (int i = 1; i < columns; i++) {
 			Line(i * Scene::Width() / columns, 0,
-				 i * Scene::Width() / columns, Scene::Height()).draw(HSV(0, 0, 0.6));
+				i * Scene::Width() / columns, Scene::Height()).draw(HSV(0, 0, 0.6));
 		}
 		for (int j = 1; j < rows; j++) {
 			Line(0, j * Scene::Height() / rows,
-					Scene::Width(), j * Scene::Height() / rows).draw(HSV(0, 0, 0.6));
+				Scene::Width(), j * Scene::Height() / rows).draw(HSV(0, 0, 0.6));
 		}
 
 		// 生物を描画する
